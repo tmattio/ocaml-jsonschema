@@ -1,0 +1,8 @@
+(executable
+ (name test_runner)
+ (libraries jsonschema yojson))
+
+(cram
+ (deps
+  test_runner.exe
+  (glob_files_rec JSON-Schema-Test-Suite/*.json)))

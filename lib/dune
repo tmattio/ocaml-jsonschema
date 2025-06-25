@@ -1,0 +1,6 @@
+(library
+ (name jsonschema)
+ (public_name jsonschema)
+ (libraries yojson ppx_deriving_yojson.runtime uri base64 str)
+ (preprocess
+  (pps ppx_deriving_yojson)))
