@@ -37,7 +37,7 @@ type t = {
   max_properties : int option;
   required : string list;
   properties : (string, schema_index) Hashtbl.t;
-  pattern_properties : (Str.regexp * schema_index) list;
+  pattern_properties : (Re.re * schema_index) list;
   property_names : schema_index option;
   additional_properties : additional option;
   dependent_required : (string * string list) list;
@@ -54,20 +54,23 @@ type t = {
   items : items option;
   additional_items : additional option;
   prefix_items : schema_index list;
-  items2020 : schema_index option;
+  items2020 : additional option;
   unevaluated_items : schema_index option;
   (* string *)
   min_length : int option;
   max_length : int option;
-  pattern : Str.regexp option;
+  pattern : Re.re option;
+  pattern_string : string option;
   content_encoding : Content.decoder option;
   content_media_type : Content.media_type option;
   content_schema : schema_index option;
   (* number *)
   minimum : float option;
   maximum : float option;
-  exclusive_minimum : float option;
-  exclusive_maximum : float option;
+  exclusive_minimum : float option; (* draft6+: numeric value *)
+  exclusive_maximum : float option; (* draft6+: numeric value *)
+  exclusive_minimum_draft4 : bool; (* draft4: boolean flag *)
+  exclusive_maximum_draft4 : bool; (* draft4: boolean flag *)
   multiple_of : float option;
 }
 

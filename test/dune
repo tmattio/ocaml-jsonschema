@@ -1,6 +1,8 @@
 (executable
  (name test_runner)
- (libraries jsonschema yojson))
+ (libraries jsonschema str yojson unix)
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson)))
 
 (cram
  (deps

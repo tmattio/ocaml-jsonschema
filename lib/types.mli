@@ -5,6 +5,7 @@ type t
 (** Set of JSON types - using bit flags for efficiency *)
 
 val empty : t
+val is_empty : t -> bool
 val contains : t -> json_type -> bool
 val add : t -> json_type -> t
 val iter : (json_type -> unit) -> t -> unit

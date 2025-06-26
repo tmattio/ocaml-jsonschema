@@ -12,6 +12,7 @@ let string_bit = 16
 let array_bit = 32
 let object_bit = 64
 let empty = 0
+let is_empty t = t = 0
 
 let to_bit = function
   | Null -> null_bit
@@ -40,6 +41,7 @@ let type_of = function
   | `Null -> Null
   | `Bool _ -> Boolean
   | `Int _ -> Integer
+  | `Float f when Float.is_integer f -> Integer
   | `Float _ -> Number
   | `String _ -> String
   | `List _ -> Array

@@ -33,6 +33,8 @@ type error_kind =
   | Min_properties of { got : int; want : int }
   | Max_properties of { got : int; want : int }
   | Additional_properties of { got : string list }
+  | Unevaluated_properties of { got : string list }
+  | Unevaluated_items of { got : int }
   | Required of { want : string list }
   | Dependency of { prop : string; missing : string list }
   | Dependent_required of { prop : string; missing : string list }
@@ -125,6 +127,25 @@ val create_validator :
 val validate : validator -> Yojson.Basic.t -> (unit, validation_error) result
 (** Validate using a pre-compiled validator *)
 
+val create_validator_with_loader :
+  ?draft:draft ->
+  ?enable_format_assertions:bool ->
+  ?enable_content_assertions:bool ->
+  url_loader:Loader.url_loader ->
+  schema:Yojson.Basic.t ->
+  unit ->
+  (validator, compile_error) result
+(** Create a validator with a custom URL loader for remote refs *)
+
+val create_validator_from_json :
+  ?draft:draft ->
+  ?enable_format_assertions:bool ->
+  ?enable_content_assertions:bool ->
+  schema:Yojson.Basic.t ->
+  unit ->
+  (validator, compile_error) result
+(** Create a validator from JSON schema (for testing) *)
+
 val draft4_validator : validator
 (** Pre-compiled validators for meta-schemas *)
 
@@ -162,6 +183,10 @@ module Compiler : sig
 
   val compile : t -> string -> (schema, compile_error) result
   (** Compile a schema from a location (file path or URL) *)
+
+  val compile_json :
+    t -> string -> Yojson.Basic.t -> (schema, compile_error) result
+  (** Compile a schema from JSON *)
 
   val add_resource :
     t -> string -> Yojson.Basic.t -> (unit, compile_error) result

@@ -11,6 +11,9 @@ let to_string err =
     | Type _ -> "type mismatch"
     | Required { want } ->
         Printf.sprintf "missing properties %s" (String.concat ", " want)
+    | All_of -> "allOf validation failed"
+    | Schema { url } -> Printf.sprintf "schema error: %s" url
+    | Unevaluated_items { got } -> Printf.sprintf "%d unevaluated items" got
     | _ -> "validation error")
 
 let to_string_verbose err = to_string err (* TODO: implement verbose version *)

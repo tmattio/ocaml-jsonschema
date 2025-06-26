@@ -3,24 +3,27 @@ type t = { name : string; func : Yojson.Basic.t -> (unit, exn) result }
 let create name func = { name; func }
 
 (* Email regex - simplified version *)
-let email_re = Str.regexp "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+let email_re =
+  Re.compile (Re.Perl.re "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
 
 (* Date regex: YYYY-MM-DD *)
-let date_re = Str.regexp "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}$"
+let date_re = Re.compile (Re.Perl.re "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 (* Time regex: HH:MM:SS with optional fraction and timezone *)
 let time_re =
-  Str.regexp
-    "^[0-9]\\{2\\}:[0-9]\\{2\\}:[0-9]\\{2\\}\\(\\.[0-9]+\\)?\\(Z\\|[+-][0-9]\\{2\\}:[0-9]\\{2\\}\\)?$"
+  Re.compile
+    (Re.Perl.re
+       "^[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")
 
 (* UUID regex *)
 let uuid_re =
-  Str.regexp
-    "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
+  Re.compile
+    (Re.Perl.re
+       "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 let validate_regex pattern =
   try
-    ignore (Str.regexp pattern);
+    ignore (Re.Perl.re pattern |> Re.compile);
     Ok ()
   with e -> Error e
 
@@ -57,11 +60,11 @@ let validate_hostname str =
   else Error (Failure "Invalid hostname character")
 
 let validate_email str =
-  if Str.string_match email_re str 0 then Ok ()
+  if Re.execp email_re str then Ok ()
   else Error (Failure "Invalid email format")
 
 let validate_date str =
-  if Str.string_match date_re str 0 then
+  if Re.execp date_re str then
     (* Additional validation for valid dates *)
     try
       let _year = int_of_string (String.sub str 0 4) in
@@ -74,8 +77,7 @@ let validate_date str =
   else Error (Failure "Invalid date format")
 
 let validate_time str =
-  if Str.string_match time_re str 0 then Ok ()
-  else Error (Failure "Invalid time format")
+  if Re.execp time_re str then Ok () else Error (Failure "Invalid time format")
 
 let validate_uri str =
   try
@@ -86,8 +88,7 @@ let validate_uri str =
   with e -> Error e
 
 let validate_uuid str =
-  if Str.string_match uuid_re str 0 then Ok ()
-  else Error (Failure "Invalid UUID format")
+  if Re.execp uuid_re str then Ok () else Error (Failure "Invalid UUID format")
 
 (* Format validators *)
 let regex =

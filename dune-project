@@ -21,9 +21,10 @@
  (depends
   (ocaml
    (>= 4.08))
-  (dune
-   (>= 3.0))
+  dune
+  re
   yojson
+  ppx_deriving_yojson
   base64
   uri
   (odoc :with-doc))

@@ -19,6 +19,8 @@ type error_kind =
   | Min_properties of { got : int; want : int }
   | Max_properties of { got : int; want : int }
   | Additional_properties of { got : string list }
+  | Unevaluated_properties of { got : string list }
+  | Unevaluated_items of { got : int }
   | Required of { want : string list }
   | Dependency of { prop : string; missing : string list }
   | Dependent_required of { prop : string; missing : string list }

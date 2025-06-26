@@ -16,4 +16,9 @@ val default_config : config
 val create : config -> t
 val create_default : unit -> t
 val compile : t -> string -> (Schema.t, compile_error) result
+
+val compile_json :
+  t -> string -> Yojson.Basic.t -> (Schema.t, compile_error) result
+
 val add_resource : t -> string -> Yojson.Basic.t -> (unit, compile_error) result
+val get_schemas : t -> Validator.schemas

@@ -3,7 +3,7 @@
 (* Re-export types *)
 type draft = Draft.t = Draft4 | Draft6 | Draft7 | Draft2019_09 | Draft2020_12
 type schema = Schema.t
-type validator = Schema.t
+type validator = { schema : Schema.t; schemas : Validator.schemas }
 type json_pointer = Json_pointer.t
 type type_set = Types.t
 
@@ -29,6 +29,8 @@ type error_kind = Error.error_kind =
   | Min_properties of { got : int; want : int }
   | Max_properties of { got : int; want : int }
   | Additional_properties of { got : string list }
+  | Unevaluated_properties of { got : string list }
+  | Unevaluated_items of { got : int }
   | Required of { want : string list }
   | Dependency of { prop : string; missing : string list }
   | Dependent_required of { prop : string; missing : string list }
@@ -174,21 +176,50 @@ let validate_file ?draft ~schema json =
           kind = Schema { url = "Compilation failed" };
           causes = [];
         }
-  | Ok sch -> Schema.validate sch json
+  | Ok sch ->
+      let schemas = Compiler.get_schemas compiler in
+      Validator.validate json sch schemas
 
 let validate_strings ?draft ~schema ~json () =
   try
     let json_value = Yojson.Basic.from_string json in
-    let _schema_value = Yojson.Basic.from_string schema in
-    validate_file ?draft ~schema:"inline://schema" json_value
-  with e ->
-    Error
-      {
-        schema_url = "inline://schema";
-        instance_location = { tokens = [] };
-        kind = Schema { url = Printexc.to_string e };
-        causes = [];
-      }
+    let schema_value = Yojson.Basic.from_string schema in
+    let config =
+      match draft with
+      | Some d -> { Compiler.default_config with default_draft = d }
+      | None -> Compiler.default_config
+    in
+    let compiler = Compiler.create config in
+    match Compiler.compile_json compiler "inline://schema" schema_value with
+    | Error _e ->
+        Error
+          {
+            schema_url = "inline://schema";
+            instance_location = { tokens = [] };
+            kind = Schema { url = "Schema compilation failed" };
+            causes = [];
+          }
+    | Ok sch ->
+        let schemas = Compiler.get_schemas compiler in
+        Validator.validate json_value sch schemas
+  with
+  | Failure msg when String.starts_with ~prefix:"get_schema:" msg ->
+      (* This is likely an index out of bounds error - let's provide a better message *)
+      Error
+        {
+          schema_url = "inline://schema";
+          instance_location = { tokens = [] };
+          kind = Schema { url = msg };
+          causes = [];
+        }
+  | e ->
+      Error
+        {
+          schema_url = "inline://schema";
+          instance_location = { tokens = [] };
+          kind = Schema { url = Printexc.to_string e };
+          causes = [];
+        }
 
 let create_validator ?draft ?(enable_format_assertions = true)
     ?(enable_content_assertions = true) location =
@@ -201,97 +232,164 @@ let create_validator ?draft ?(enable_format_assertions = true)
     }
   in
   let compiler = Compiler.create config in
-  Compiler.compile compiler location
+  match Compiler.compile compiler location with
+  | Ok compiled_schema ->
+      Ok { schema = compiled_schema; schemas = Compiler.get_schemas compiler }
+  | Error e -> Error e
 
-let validate validator json = Schema.validate validator json
+let validate validator json =
+  Validator.validate json validator.schema validator.schemas
+
+(* Create validator with custom URL loader *)
+let create_validator_with_loader ?draft ?(enable_format_assertions = true)
+    ?(enable_content_assertions = true) ~url_loader ~schema () =
+  let config =
+    {
+      Compiler.default_config with
+      default_draft = Option.value draft ~default:Draft2020_12;
+      enable_format_assertions;
+      enable_content_assertions;
+      url_loader = Some url_loader;
+    }
+  in
+  let compiler = Compiler.create config in
+  match Compiler.compile_json compiler "inline://schema" schema with
+  | Ok compiled_schema ->
+      Ok { schema = compiled_schema; schemas = Compiler.get_schemas compiler }
+  | Error e -> Error e
+
+(* Create validator from JSON schema - for testing *)
+let create_validator_from_json ?draft ?(enable_format_assertions = true)
+    ?(enable_content_assertions = true) ~schema () =
+  let config =
+    {
+      Compiler.default_config with
+      default_draft = Option.value draft ~default:Draft2020_12;
+      enable_format_assertions;
+      enable_content_assertions;
+    }
+  in
+  let compiler = Compiler.create config in
+  match Compiler.compile_json compiler "inline://schema" schema with
+  | Ok compiled_schema ->
+      Ok { schema = compiled_schema; schemas = Compiler.get_schemas compiler }
+  | Error e -> Error e
 
 (* Pre-compiled meta-schema validators *)
 let draft4_validator =
-  {
-    Schema.draft_version = Draft4;
-    idx = 0;
-    location = "https://json-schema.org/draft-04/schema";
-    resource = 0;
-    dynamic_anchors = Hashtbl.create 0;
-    all_props_evaluated = false;
-    all_items_evaluated = false;
-    num_items_evaluated = 0;
-    boolean = Some true;
-    ref_ = None;
-    recursive_ref = None;
-    recursive_anchor = false;
-    dynamic_ref = None;
-    dynamic_anchor = None;
-    types = Types.empty;
-    enum_ = None;
-    constant = None;
-    not = None;
-    all_of = [];
-    any_of = [];
-    one_of = [];
-    if_ = None;
-    then_ = None;
-    else_ = None;
-    format = None;
-    min_properties = None;
-    max_properties = None;
-    required = [];
-    properties = Hashtbl.create 0;
-    pattern_properties = [];
-    property_names = None;
-    additional_properties = None;
-    dependent_required = [];
-    dependent_schemas = [];
-    dependencies = [];
-    unevaluated_properties = None;
-    min_items = None;
-    max_items = None;
-    unique_items = false;
-    min_contains = None;
-    max_contains = None;
-    contains = None;
-    items = None;
-    additional_items = None;
-    prefix_items = [];
-    items2020 = None;
-    unevaluated_items = None;
-    min_length = None;
-    max_length = None;
-    pattern = None;
-    content_encoding = None;
-    content_media_type = None;
-    content_schema = None;
-    minimum = None;
-    maximum = None;
-    exclusive_minimum = None;
-    exclusive_maximum = None;
-    multiple_of = None;
-  }
+  let schema =
+    {
+      Schema.draft_version = Draft4;
+      idx = 0;
+      location = "https://json-schema.org/draft-04/schema";
+      resource = 0;
+      dynamic_anchors = Hashtbl.create 0;
+      all_props_evaluated = false;
+      all_items_evaluated = false;
+      num_items_evaluated = 0;
+      boolean = Some true;
+      ref_ = None;
+      recursive_ref = None;
+      recursive_anchor = false;
+      dynamic_ref = None;
+      dynamic_anchor = None;
+      types = Types.empty;
+      enum_ = None;
+      constant = None;
+      not = None;
+      all_of = [];
+      any_of = [];
+      one_of = [];
+      if_ = None;
+      then_ = None;
+      else_ = None;
+      format = None;
+      min_properties = None;
+      max_properties = None;
+      required = [];
+      properties = Hashtbl.create 0;
+      pattern_properties = [];
+      property_names = None;
+      additional_properties = None;
+      dependent_required = [];
+      dependent_schemas = [];
+      dependencies = [];
+      unevaluated_properties = None;
+      min_items = None;
+      max_items = None;
+      unique_items = false;
+      min_contains = None;
+      max_contains = None;
+      contains = None;
+      items = None;
+      additional_items = None;
+      prefix_items = [];
+      items2020 = None;
+      unevaluated_items = None;
+      min_length = None;
+      max_length = None;
+      pattern = None;
+      pattern_string = None;
+      content_encoding = None;
+      content_media_type = None;
+      content_schema = None;
+      minimum = None;
+      maximum = None;
+      exclusive_minimum = None;
+      exclusive_maximum = None;
+      exclusive_minimum_draft4 = false;
+      exclusive_maximum_draft4 = false;
+      multiple_of = None;
+    }
+  in
+  let schemas = Validator.create_schemas () in
+  Validator.insert_schemas schemas [ schema.location ] [ schema ];
+  { schema; schemas }
 
 let draft6_validator =
-  {
-    draft4_validator with
-    draft_version = Draft6;
-    location = "https://json-schema.org/draft-06/schema";
-  }
+  let schema =
+    {
+      draft4_validator.schema with
+      draft_version = Draft6;
+      location = "https://json-schema.org/draft-06/schema";
+    }
+  in
+  let schemas = Validator.create_schemas () in
+  Validator.insert_schemas schemas [ schema.location ] [ schema ];
+  { schema; schemas }
 
 let draft7_validator =
-  {
-    draft4_validator with
-    draft_version = Draft7;
-    location = "https://json-schema.org/draft-07/schema";
-  }
+  let schema =
+    {
+      draft4_validator.schema with
+      draft_version = Draft7;
+      location = "https://json-schema.org/draft-07/schema";
+    }
+  in
+  let schemas = Validator.create_schemas () in
+  Validator.insert_schemas schemas [ schema.location ] [ schema ];
+  { schema; schemas }
 
 let draft2019_09_validator =
-  {
-    draft4_validator with
-    draft_version = Draft2019_09;
-    location = "https://json-schema.org/draft/2019-09/schema";
-  }
+  let schema =
+    {
+      draft4_validator.schema with
+      draft_version = Draft2019_09;
+      location = "https://json-schema.org/draft/2019-09/schema";
+    }
+  in
+  let schemas = Validator.create_schemas () in
+  Validator.insert_schemas schemas [ schema.location ] [ schema ];
+  { schema; schemas }
 
 let draft2020_12_validator =
-  {
-    draft4_validator with
-    draft_version = Draft2020_12;
-    location = "https://json-schema.org/draft/2020-12/schema";
-  }
+  let schema =
+    {
+      draft4_validator.schema with
+      draft_version = Draft2020_12;
+      location = "https://json-schema.org/draft/2020-12/schema";
+    }
+  in
+  let schemas = Validator.create_schemas () in
+  Validator.insert_schemas schemas [ schema.location ] [ schema ];
+  { schema; schemas }
