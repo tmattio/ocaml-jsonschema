@@ -1,0 +1,14 @@
+build: [
+  ["dune" "subst"] {dev}
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    # "@runtest" {with-test} # requires updating git submodules, but this is not supported
+    "@doc" {with-doc}
+  ]
+]

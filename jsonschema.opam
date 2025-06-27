@@ -19,6 +19,8 @@ depends: [
   "uri"
   "odoc" {with-doc}
 ]
+dev-repo: "git+https://github.com/tmattio/ocaml-jsonschema.git"
+x-maintenance-intent: ["(latest)"]
 build: [
   ["dune" "subst"] {dev}
   [
@@ -29,9 +31,7 @@ build: [
     "-j"
     jobs
     "@install"
-    "@runtest" {with-test}
+    # "@runtest" {with-test} # requires updating git submodules, but this is not supported
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/tmattio/ocaml-jsonschema.git"
-x-maintenance-intent: ["(latest)"]
