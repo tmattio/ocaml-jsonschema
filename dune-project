@@ -20,12 +20,14 @@
   "A comprehensive JSON Schema validator implementation for OCaml supporting drafts 4, 6, 7, 2019-09, and 2020-12. This library provides full validation of JSON documents against JSON Schema definitions with detailed error reporting, support for all standard validation keywords, format validators, and content encoding/decoding. It includes features like remote schema resolution, custom format validators, and multiple output formats for validation results.")
  (depends
   (ocaml
-   (>= 4.08))
+   (>= 4.13))
   dune
-  re
+  (re
+   (>= 1.7.2))
   yojson
   ppx_deriving_yojson
-  base64
+  (base64
+   (>= 3.0.0))
   uri
   (odoc :with-doc))
  (tags
